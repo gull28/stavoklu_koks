@@ -9,6 +9,7 @@
 
 class GameState {
 public:
+    // atlikusa speles skaitlu kopa
     std::vector<int> sequence;
     int p1_score;
     int p2_score;
@@ -17,10 +18,12 @@ public:
     GameState(const std::vector<int>& seq = {}, int p1 = 0, int p2 = 0, bool turn = true)
         : sequence(seq), p1_score(p1), p2_score(p2), is_p1_turn(turn) {}
 
+
     bool isTerminal() const {
         return sequence.size() == 1;
     }
 
+    // nosaka uzvaretaju ja skaitlu kopa vairs nav skaitlu, atgriez uzvaretaju
     int getWinner() const {
         if (!isTerminal()) return 0;
         if (p1_score > p2_score) return 1;
@@ -28,6 +31,7 @@ public:
         return 0;
     }
 
+    // salidzina divus speles stavoklus
     bool operator==(const GameState& other) const {
         return sequence == other.sequence &&
                p1_score == other.p1_score &&
@@ -35,18 +39,22 @@ public:
                is_p1_turn == other.is_p1_turn;
     }
 
+    // apstrada parus
+    // piemeram (1 2 3 4) apstradas (1 2) (2 3) (3 4)
     std::vector<GameState> generateNextStates() const {
         std::vector<GameState> next_states;
         next_states.reserve(sequence.size() - 1);
 
+        // iterativi izveido nakamos speles iespejamos gajienus
         for (size_t i = 0; i < sequence.size() - 1; ++i) {
-            int sum = sequence[i] + sequence[i+1];
+            int sum = sequence[i] + sequence[i+1]; // blakus esoso elementu summa
             std::vector<int> new_sequence = sequence;
-            new_sequence.erase(new_sequence.begin() + i, new_sequence.begin() + i + 2);
+            new_sequence.erase(new_sequence.begin() + i, new_sequence.begin() + i + 2); // nonem apskatamo pari no saraksta
 
             int new_p1 = p1_score;
             int new_p2 = p2_score;
 
+            // atkariba no para summas, pieskir speletajam rezultatu
             if (sum > 7) {
                 new_sequence.insert(new_sequence.begin() + i, 1);
                 if (is_p1_turn) new_p1 += 2;
@@ -63,6 +71,7 @@ public:
                 else new_p2 -= 1;
             }
 
+            // jauno stavokli ievieto saraksta beigas
             next_states.emplace_back(new_sequence, new_p1, new_p2, !is_p1_turn);
         }
 
@@ -88,6 +97,9 @@ public:
     }
 };
 
+// kapec hashot?
+// krietni atrak salidzinat divus speles stavoklus
+// nevajag parrekinat un veidot jau izveidotus speles stavoklus
 namespace std {
     template<>
     struct hash<GameState> {
@@ -107,7 +119,7 @@ namespace std {
 struct GameTreeNode {
     GameState state;
     std::vector<std::unique_ptr<GameTreeNode>> children;
-    int id;
+    int id; // tiri debug, vizualizacijas un development vajadzibam
     int depth;
 
     GameTreeNode(const GameState& game_state = GameState(), int node_id = 0, int d = 0)
@@ -138,22 +150,31 @@ struct GameTreeNode {
     }
 };
 
-void buildTree(GameTreeNode* node, int current_depth, int max_depth,
-               std::unordered_map<GameState, int>& state_cache, int& node_counter) {
+void buildTree(GameTreeNode* node, // apstradajamais mezgls
+    int current_depth, int max_depth,
+               std::unordered_map<GameState, int>& state_cache, // apmekletie stavokli
+               int& node_counter) {
+    // apstaties pie max dziluma vai ja vairs nav 2 elementu sequence saraksta
     if (node->state.isTerminal() || current_depth >= max_depth) {
         return;
     }
 
+    // parbauda vai ir jau apmeklets, ja nav pievieno stavokli apmekleto stavokli
     if (state_cache.count(node->state)) {
         return;
     }
     state_cache[node->state] = node->id;
 
+    // izveido pectecu stavoklus mezglam
     auto next_states = node->state.generateNextStates();
     for (const auto& next_state : next_states) {
+        // jauns mezgla id
         int new_id = ++node_counter;
+        // jaunais apskatamais node, aiziet vienu limeni zemak
         auto new_node = std::make_unique<GameTreeNode>(next_state, new_id, current_depth + 1);
+        // rekursivi izveido koku
         buildTree(new_node.get(), current_depth + 1, max_depth, state_cache, node_counter);
+        // pectecus pievieno mezgla pectecu sarakstam
         node->children.push_back(std::move(new_node));
     }
 }
